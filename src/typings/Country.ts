@@ -21,3 +21,8 @@ export type CountryEmissionsForYear = {
   score: string
   value: number
 }
+
+export interface EmissionDataByYear {
+  year: number;
+  countries: { countryName: string; carbon: number }[];
+}

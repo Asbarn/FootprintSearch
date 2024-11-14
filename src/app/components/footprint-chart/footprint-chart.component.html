@@ -1,0 +1,19 @@
+<div *ngIf="isLoading" class="loader">Loading data, please wait...</div>
+
+<div *ngIf="!isLoading">
+  <h2 class="year-display">Year: {{ currentYear }}</h2>
+  <div class="chart-container">
+    <div *ngFor="let country of countriesData" class="bar-container">
+      <div class="bar-label">{{ country.countryName }}</div>
+      <div class="bar-wrapper">
+        <div
+          class="bar"
+          [style.width.%]="calculateWidth(country.carbon)"
+          [style.transition]="'width 1s ease'"
+        ></div>
+      </div>
+      <div class="bar-value">{{ country.carbon }}</div>
+    </div>
+  </div>
+  <div class="total-footprint">Total World Footprint: {{ totalFootprint }}</div>
+</div>
