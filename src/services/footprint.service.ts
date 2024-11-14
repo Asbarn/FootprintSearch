@@ -8,54 +8,65 @@ import type { Country, CountryEmissionsForYear } from '../typings/Country';
   providedIn: 'root',
 })
 export class FootprintService {
-  private emissionsData: Map<number, { countryName: string; carbon: number }[]> = new Map();
+  private topCountriesByYear = new Map<number, { countryName: string; carbon: number }[]>();
   private currentYearSubject = new BehaviorSubject<number | null>(null);
-  currentYear$ = this.currentYearSubject.asObservable();
   private loadingSubject = new BehaviorSubject<boolean>(true);
+  currentYear$ = this.currentYearSubject.asObservable();
   loading$ = this.loadingSubject.asObservable();
 
   constructor() {}
 
   async initializeData() {
     this.loadingSubject.next(true);
-    const cachedData = this.getCachedData();
+    const cachedData = this.getCachedData('topCountriesByYear');
+
     if (cachedData) {
-      this.emissionsData = cachedData;
+      this.topCountriesByYear = cachedData;
     } else {
-      await this.loadData();
-      this.cacheData();
+      const allEmissions = await this.fetchAllEmissionsData();
+      this.processEmissionsData(allEmissions);
+      this.setCachedData('topCountriesByYear', this.topCountriesByYear);
     }
+
     this.setInitialYear();
     this.loadingSubject.next(false);
   }
 
-  private async loadData() {
-    try {
-      const countries = await this.getCountries();
-      for (const country of countries) {
-        const countryCode = Number(country.countryCode);
-        if (isNaN(countryCode)) continue;
+  private async fetchAllEmissionsData(): Promise<CountryEmissionsForYear[]> {
+    const countries = await this.getCountries();
+    const allEmissions: CountryEmissionsForYear[] = [];
+
+    for (const country of countries) {
+      const countryCode = Number(country.countryCode);
+      if (!isNaN(countryCode)) {
         const emissions = await this.getCountry(countryCode);
-        emissions.forEach((record) => {
-          if (!this.emissionsData.has(record.year)) {
-            this.emissionsData.set(record.year, []);
-          }
-          this.emissionsData.get(record.year)?.push({ countryName: record.countryName, carbon: record.carbon });
-        });
+        allEmissions.push(...emissions);
       }
-    } catch (error) {
-      console.error("Error in loading:", error);
     }
+
+    return allEmissions;
   }
 
-  private async getCountries() {
+  private processEmissionsData(emissions: CountryEmissionsForYear[]) {
+    const years = Array.from(new Set(emissions.map(record => record.year)));
+    years.forEach(year => {
+      const dataForYear = emissions
+        .filter(record => record.year === year)
+        .map(record => ({ countryName: record.countryName, carbon: record.carbon }))
+        .sort((a, b) => b.carbon - a.carbon)
+        .slice(0, 20); // take top 20
+      this.topCountriesByYear.set(year, dataForYear);
+    });
+  }
+
+  private async getCountries(): Promise<Country[]> {
     const { data } = await axios.get<Country[]>('https://api.footprintnetwork.org/v1/countries', {
       auth: { username: 'asbarn', password: API_KEY },
     });
     return data;
   }
 
-  private async getCountry(countryCode: number) {
+  private async getCountry(countryCode: number): Promise<CountryEmissionsForYear[]> {
     const { data } = await axios.get<CountryEmissionsForYear[]>(
       `https://api.footprintnetwork.org/v1/data/${countryCode}/all/EFCpc`,
       { auth: { username: 'asbarn', password: API_KEY } }
@@ -64,38 +75,35 @@ export class FootprintService {
   }
 
   private setInitialYear() {
-    const minYear = Math.min(...Array.from(this.emissionsData.keys()));
+    const minYear = Math.min(...Array.from(this.topCountriesByYear.keys()));
     this.currentYearSubject.next(minYear);
   }
 
   getDataForYear(year: number) {
-    return this.emissionsData.get(year) || [];
+    return this.topCountriesByYear.get(year) || [];
   }
 
   incrementYear() {
     const currentYear = this.currentYearSubject.value;
-    if (currentYear !== null) {
-      const nextYear = currentYear + 1;
-      if (this.emissionsData.has(nextYear)) {
-        this.currentYearSubject.next(nextYear);
-      }
+    const nextYear = currentYear ? currentYear + 1 : null;
+    if (nextYear && this.topCountriesByYear.has(nextYear)) {
+      this.currentYearSubject.next(nextYear);
     }
   }
 
-  private getCachedData(): Map<number, { countryName: string; carbon: number }[]> | null {
-    const cached = localStorage.getItem('emissionsData');
+  private getCachedData(key: string): Map<number, { countryName: string; carbon: number }[]> | null {
+    const cached = localStorage.getItem(key);
     if (cached) {
       const { data, timestamp } = JSON.parse(cached);
       if (Date.now() - timestamp < 5 * 60 * 1000) {
         return new Map(data);
       }
-      localStorage.removeItem('emissionsData');
+      localStorage.removeItem(key);
     }
     return null;
   }
 
-  private cacheData() {
-    const data = Array.from(this.emissionsData.entries());
-    localStorage.setItem('emissionsData', JSON.stringify({ data, timestamp: Date.now() }));
+  private setCachedData(key: string, data: Map<number, { countryName: string; carbon: number }[]>) {
+    localStorage.setItem(key, JSON.stringify({ data: Array.from(data.entries()), timestamp: Date.now() }));
   }
 }

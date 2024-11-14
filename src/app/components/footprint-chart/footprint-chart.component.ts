@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FootprintService } from '../../../services/footprint.service';
-import { Subscription } from 'rxjs';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-footprint-chart',
@@ -12,42 +13,36 @@ export class FootprintChartComponent implements OnInit, OnDestroy {
   totalFootprint: number = 0;
   currentYear: number | null = null;
   isLoading: boolean = true;
-  private subscriptions: Subscription = new Subscription();
+  private destroy$ = new Subject<void>();
 
   constructor(private footprintService: FootprintService) {}
 
-  async ngOnInit() {
-    this.subscriptions.add(
-      this.footprintService.loading$.subscribe((loading) => {
-        this.isLoading = loading;
-      })
-    );
+  ngOnInit() {
+    this.footprintService.loading$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(loading => this.isLoading = loading);
 
-    await this.footprintService.initializeData();
+    this.footprintService.currentYear$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(year => {
+        this.currentYear = year;
+        this.updateChartData(year);
+      });
 
-    this.subscriptions.add(
-      this.footprintService.currentYear$.subscribe((year) => {
-        if (year !== null) {
-          this.currentYear = year;
-          this.updateChartData(year);
-        }
-      })
-    );
-
-    setInterval(() => {
-      this.footprintService.incrementYear();
-    }, 2000);
+    this.footprintService.initializeData();
+    setInterval(() => this.footprintService.incrementYear(), 2000);
   }
 
   ngOnDestroy() {
-    this.subscriptions.unsubscribe();
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
-  private updateChartData(year: number) {
-    this.countriesData = this.footprintService.getDataForYear(year)
-      .sort((a, b) => b.carbon - a.carbon)
-      .slice(0, 20); // take top 20
-    this.totalFootprint = this.countriesData.reduce((sum, country) => sum + country.carbon, 0);
+  private updateChartData(year: number | null) {
+    if (year !== null) {
+      this.countriesData = this.footprintService.getDataForYear(year);
+      this.totalFootprint = this.countriesData.reduce((sum, country) => sum + country.carbon, 0);
+    }
   }
 
   calculateWidth(carbon: number): number {
