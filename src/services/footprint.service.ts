@@ -1,37 +1,40 @@
-import { Injectable } from '@angular/core';
-import axios from 'axios'
+import { Injectable } from "@angular/core";
+import axios from "axios";
 
-import { API_KEY } from '../constants/constants'
+import { API_KEY } from "../constants/constants";
 
-import type { Country, CountryEmissionsForYear } from '../typings/Country'
+import type { Country, CountryEmissionsForYear } from "../typings/Country";
+import { HttpClient, HttpHeaders } from "@angular/common/http";
 
 @Injectable({
   providedIn: 'root',
 })
 export class FootprintService {
-  constructor() {}
+  constructor(
+    private httpClient: HttpClient
+  ) {}
 
-  async getCountries() {
-    const { data } = await axios.get<Country[]>('https://api.footprintnetwork.org/v1/countries', {
-      auth: {
-        username: 'asbarn',
-        password: API_KEY
-      }
+  getHeaders(): HttpHeaders {
+
+    return new HttpHeaders({
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: "Basic " + btoa(`asbarn:${API_KEY}`),
+    });
+  }
+
+  getCountries() {
+    return this.httpClient.get<Country[]>('https://api.footprintnetwork.org/v1/countries', {
+      headers: this.getHeaders()
     })
-    return data
   }
 
   // get a single country by countryCode
-  async getCountry(countryCode: number) {
-    const { data } = await axios.get<CountryEmissionsForYear[]>(
-      `https://api.footprintnetwork.org/v1/data/${countryCode}/all/EFCpc`,
-      {
-        headers: {
-          Authorization: API_KEY,
-        },
+  getCountry(countryCode: string) {
+    return this.httpClient.get<CountryEmissionsForYear[]>(
+      `https://api.footprintnetwork.org/v1/data/${countryCode}/all/EFCpc`, {
+        headers: this.getHeaders()
       }
     )
-
-    return data
   }
 }
