@@ -20,7 +20,8 @@ export class AppComponent implements OnInit {
         countryCodes.push(countryCode);
       });
 
-      this.fetchCountriesWithInterval(countryCodes);
+      // fetches specific data for each country by countryCode in specific intervals
+      // this.fetchCountriesWithInterval(countryCodes);
     });
   }
 
