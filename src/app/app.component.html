@@ -1,7 +1,14 @@
 <main class="main">
-    <label>
-        Countries:
-    </label>
+  <label> Countries: </label>
+  @for (item of emissionsByCountry; track item.country) {
+  <div class="bar-row">
+    <span class="label">{{ item.country }}</span>
+    <div class="bar-wrapper">
+      <div class="bar" [style.width.%]="item.carbon * 10"></div>
+      <span class="value">{{ item.carbon | number : "1.1-1" }} gha</span>
+    </div>
+  </div>
+  }
 </main>
 
-<router-outlet/>
+<router-outlet />
