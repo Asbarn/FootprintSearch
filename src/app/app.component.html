@@ -1,5 +1,14 @@
 <main class="main">
-  <label> Countries: </label>
+  <div class="summary">
+    <span class="year-label">Year: {{ selectedYear }}</span>
+    <span class="total-carbon">
+      Total Global Carbon Footprint:
+      <span class="total-value">{{ totalCarbon | number : "1.1-1" }} gha</span>
+    </span>
+  </div>
+
+  <label class="chart-title">Countries:</label>
+
   @for (item of emissionsByCountry; track item.country) {
   <div class="bar-row">
     <span class="label">{{ item.country }}</span>

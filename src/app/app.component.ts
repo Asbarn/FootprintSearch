@@ -10,6 +10,7 @@ import { FootprintService } from "../services/footprint.service";
 export class AppComponent implements OnInit {
   public emissionsByCountry: { country: string; carbon: number }[] = [];
   public selectedYear = 2019;
+  public totalCarbon = 0;
 
   constructor(private footprintService: FootprintService) {}
 
@@ -37,10 +38,13 @@ export class AppComponent implements OnInit {
     );
 
     forkJoin(requests).subscribe((results) => {
-      this.emissionsByCountry = results
+      const validResults = results
         .filter((r): r is { country: string; carbon: number } => !!r)
         .sort((a, b) => b.carbon - a.carbon)
         .slice(0, 20);
+
+      this.emissionsByCountry = validResults.slice(0, 20);
+      this.totalCarbon = validResults.reduce((sum, r) => sum + r.carbon, 0);
     });
   }
 
